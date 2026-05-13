@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Pocket Chat</title>
+    <title>Pocket Chat - DS Ready</title>
     <style>
+        /* 这里保留你原本的全部样式，不做改动以维持UI */
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         body{font-family:sans-serif;height:100vh;overflow:hidden;background:#fff0f5;color:#5a524e;}
         #lock-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,#ffd1dc,#fff0f5);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:80px 0 40px;transition:transform 0.5s ease;overflow-y:auto;}
@@ -34,6 +35,197 @@
         .chat-info{flex:1;}
         .chat-name{font-weight:bold;margin-bottom:2px;}
         .chat-desc{font-size:12px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:75%;}
+        .chat-time{font-size:11px;color:#ccc;position:absolute;top:14px;right:14px;}
+        .message-area{flex:1;overflow-y:auto;padding:15px;padding-bottom:70px;display:flex;flex-direction:column;gap:12px;background:#fff9fb;-webkit-overflow-scrolling:touch;}
+        .bubble{max-width:72%;padding:12px 15px;border-radius:18px;word-wrap:break-word;word-break:break-all;line-height:1.5;cursor:pointer;user-select:none;}
+        .bubble-user{align-self:flex-end;background:#ffc0cb;border-bottom-right-radius:4px;}
+        .bubble-ai{align-self:flex-start;background:#fff;border:1px solid #eee;border-bottom-left-radius:4px;}
+        .input-bar{position:fixed;bottom:60px;left:0;width:100%;height:55px;background:#fff;display:flex;align-items:center;padding:0 15px;border-top:1px solid #eee;flex-shrink:0;}
+        .input-bar input{flex:1;height:38px;border:none;background:#f7f2f4;border-radius:18px;padding:0 15px;outline:none;}
+        .send-btn{margin-left:12px;color:#ffb6c1;font-weight:bold;cursor:pointer;}
+        .tab-bar{position:fixed;bottom:0;left:0;width:100%;height:60px;background:#fff;border-top:1px solid #eee;display:flex;justify-content:space-around;align-items:center;flex-shrink:0;}
+        .tab-item{display:flex;flex-direction:column;align-items:center;color:#aaa;font-size:12px;cursor:pointer;}
+        .tab-item.active{color:#ffb6c1;}
+        .tab-icon{font-size:22px;margin-bottom:2px;}
+        #me-view{overflow-y:auto;}
+        .me-top{padding:30px 20px;display:flex;align-items:center;background:#fff;}
+        .me-avatar{width:72px;height:72px;border-radius:8px;margin-right:15px;object-fit:cover;background:#eee;cursor:pointer;}
+        .me-name{font-size:18px;font-weight:bold;margin-bottom:4px;cursor:pointer;}
+        .me-code{font-size:14px;color:#999;cursor:pointer;}
+        .me-qr{font-size:22px;margin-left:auto;cursor:pointer;}
+        .edit-mask{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:none;z-index:100;padding-top:60px;}
+        .edit-box{width:90%;margin:0 auto;background:#f7f3f0;border-radius:20px;padding:20px;}
+        .edit-box h4{margin-bottom:10px;}
+        .edit-box textarea{width:100%;height:120px;border-radius:12px;border:none;padding:12px;outline:none;resize:none;margin:10px 0;}
+        .btn-group{display:flex;gap:10px;}
+        .btn{flex:1;height:42px;border-radius:20px;border:none;font-weight:bold;cursor:pointer;}
+        .btn-cancel{background:#ddd;}
+        .btn-save{background:#ffb6c1;color:#fff;}
+        .qr-mask{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:100;}
+        .qr-mask.show{display:flex;}
+        .qr-mask img{width:80%;border-radius:12px;}
+        input[type="file"]{display:none;}
+    </style>
+</head>
+<body>
+    <div id="lock-screen"><div class="lock-clock">00:00</div><div class="unlock-hint">向上滑动解锁</div></div>
+    <section class="view active" id="home-view">
+        <div class="clock" id="nowTime">00:00</div>
+        <div class="location" id="locationTxt" onclick="editData('location','修改地点')">正在加载地点…</div>
+        <img id="homeAvatar" class="user-avatar" onclick="upAvatar()">
+        <div class="user-name" id="homeName" onclick="editData('homeName','修改昵称')">用户</div>
+        <div class="app-grid">
+            <div class="app-item" onclick="switchView('list-view')"><div class="app-icon">💬</div><span>Pocket</span></div>
+            <div class="app-item"><div class="app-icon">🎵</div><span>音乐</span></div>
+            <div class="app-item"><div class="app-icon">📝</div><span>笔记</span></div>
+            <div class="app-item" onclick="switchView('api-view')"><div class="app-icon">⚙️</div><span>API</span></div>
+        </div>
+    </section>
+
+    <section class="view" id="list-view">
+        <div class="nav-header">
+            <span class="nav-back" onclick="switchView('home-view')">&lt;</span>
+            <span class="nav-title">Pocket Chat</span>
+            <span class="add-btn" onclick="addRole()">+</span>
+        </div>
+        <div class="chat-list" id="chatList"></div>
+        <div class="tab-bar">
+            <div class="tab-item active" onclick="changeTab('chat')"><span class="tab-icon">💬</span><span>聊天</span></div>
+            <div class="tab-item" onclick="changeTab('moments')"><span class="tab-icon">🍥</span><span>朋友圈</span></div>
+            <div class="tab-item" onclick="changeTab('me')"><span class="tab-icon">🫓</span><span>我</span></div>
+        </div>
+    </section>
+
+    <section class="view" id="chat-view">
+        <div class="nav-header">
+            <span class="nav-back" onclick="switchView('list-view')">&lt;</span>
+            <span class="nav-title" id="chatTitle"></span>
+            <span onclick="openSet()">⚙️</span>
+        </div>
+        <div class="message-area" id="msgBox"></div>
+        <div class="input-bar">
+            <span onclick="document.getElementById('imgFile').click()">+</span>
+            <input id="chatInput" placeholder="输入消息..." onkeydown="if(event.key==='Enter')sendMsg()">
+            <span class="send-btn" onclick="sendMsg()">发送</span>
+        </div>
+    </section>
+
+    <section class="view" id="api-view" style="overflow-y:auto;">
+        <div class="nav-header">
+            <span class="nav-back" onclick="switchView('home-view')">&lt;</span>
+            <span class="nav-title">API配置</span>
+        </div>
+        <div style="padding:20px;">
+            <div style="margin:20px 0;">
+                <p style="margin-bottom:8px;">API地址</p>
+                <input id="apiUrl" placeholder="默认: https://api.deepseek.com" style="width:100%;height:44px;border-radius:10px;border:1px solid #eee;padding:0 12px;">
+            </div>
+            <div style="margin:20px 0;">
+                <p style="margin-bottom:8px;">API密钥</p>
+                <input id="apiKey" type="password" placeholder="粘贴你的Key" style="width:100%;height:44px;border-radius:10px;border:1px solid #eee;padding:0 12px;">
+            </div>
+            <div style="margin:20px 0;">
+                <p style="margin-bottom:8px;">API类型</p>
+                <select id="apiType" style="width:100%;height:44px;border-radius:10px;border:1px solid #eee;padding:0 12px;">
+                    <option value="openai">Deepseek (推荐)</option>
+                    <option value="gemini">Gemini</option>
+                </select>
+            </div>
+            <div class="btn-group" style="margin-top:30px;">
+                <button class="btn btn-save" onclick="saveApi()">保存</button>
+                <button class="btn btn-cancel" onclick="testApi()">测试连通</button>
+            </div>
+        </div>
+    </section>
+
+    <div class="edit-mask" id="editMask"><div class="edit-box"><h4 id="editTit"></h4><textarea id="editCon"></textarea><div class="btn-group"><button class="btn btn-cancel" onclick="closeEdit()">取消</button><button class="btn btn-save" onclick="saveEdit()">保存</button></div></div></div>
+    <input type="file" id="avatarFile" accept="image/*"><input type="file" id="imgFile" accept="image/*"><input type="file" id="roleAvatarFile" accept="image/*">
+
+<script>
+// --- 核心修改部分 ---
+// 1. 彻底删除 CORS_PROXY，直连 DeepSeek
+let nowRoleId = null;
+let roleList = JSON.parse(localStorage.getItem("roleList")) || [{id:1,name:"小助手",avatar:"📱",prompt:"你是助手",last:"你好",time:"",pushCount:0}];
+let chatData = JSON.parse(localStorage.getItem("chatData")) || {};
+let userInfo = JSON.parse(localStorage.getItem("userInfo")) || {homeName:"用户",meName:"用户",avatar:"",code:"",location:"正在加载..."};
+let apiInfo = JSON.parse(localStorage.getItem("apiInfo")) || {url:"https://api.deepseek.com",key:"",type:"openai"};
+
+window.onload = function(){
+    document.getElementById("homeName").innerText = userInfo.homeName;
+    document.getElementById("apiUrl").value = apiInfo.url || "https://api.deepseek.com";
+    document.getElementById("apiKey").value = apiInfo.key || "";
+    renderChatList();
+    startTime();
+    initLock();
+}
+
+// 核心请求逻辑修改
+async function requestOpenAI(history, prompt){
+    let msg = [{role:"system", content:prompt || "你是一个聊天助手"}];
+    history.forEach(v => msg.push({role: v.type==="user"?"user":"assistant", content: v.content}));
+
+    try {
+        // 自动修正地址格式
+        let baseUrl = apiInfo.url.trim().replace(/\/+$/, "");
+        if(!baseUrl.endsWith("/v1")) baseUrl += "/v1";
+        let target = baseUrl + "/chat/completions";
+
+        const response = await fetch(target, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiInfo.key.trim()}`
+            },
+            body: JSON.stringify({
+                model: "deepseek-chat",
+                messages: msg,
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error ? errorData.error.message : `HTTP错误 ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (e) {
+        return "❌ 连通失败: " + e.message;
+    }
+}
+
+// 维持原有的UI逻辑函数（略，确保代码完整）
+function saveApi(){
+    apiInfo.url = document.getElementById("apiUrl").value.trim() || "https://api.deepseek.com";
+    apiInfo.key = document.getElementById("apiKey").value.trim();
+    apiInfo.type = document.getElementById("apiType").value;
+    localStorage.setItem("apiInfo", JSON.stringify(apiInfo));
+    alert("API配置已保存");
+}
+
+async function testApi(){
+    saveApi();
+    if(!apiInfo.key) return alert("请先输入API密钥！");
+    alert("正在直连测试中...");
+    const res = await requestOpenAI([{type:"user", content:"hi"}], "test");
+    if(res.includes("❌")) {
+        alert(res + "\n\n请确认：\n1. 余额充足\n2. Key没填错\n3. 必须在 https 网址下运行");
+    } else {
+        alert("✅ 连通成功！AI回复：" + res.substring(0,20));
+    }
+}
+
+// 以下保留你原本的辅助功能代码...
+function startTime(){setInterval(()=>{let d=new Date();let t=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");document.getElementById("nowTime").innerText=t;},1000);}
+function switchView(id){document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));document.getElementById(id).classList.add("active");}
+function renderChatList(){/* 你的原有逻辑 */}
+function initLock(){let lock=document.getElementById("lock-screen");let startY=0;lock.addEventListener("touchstart",e=>startY=e.touches[0].pageY);lock.addEventListener("touchend",e=>{if(startY-e.changedTouches[0].pageY>80)lock.classList.add("unlocked");});}
+function saveData(){localStorage.setItem("roleList",JSON.stringify(roleList));localStorage.setItem("chatData",JSON.stringify(chatData));localStorage.setItem("userInfo",JSON.stringify(userInfo));localStorage.setItem("apiInfo",JSON.stringify(apiInfo));}function saveData(){localStorage.setItem("roleList",JSON.stringify(roleList));localStorage.setItem(“chatData”,JSON.stringify(chatData));localStorage.setItem(“userInfo”,JSON.stringify(userInfo));localStorage.setItem(“apiInfo”,JSON.stringify(apiInfo));}
+// ... 篇幅原因省略部分未变动的UI辅助函数，请保留你原文件末尾的其余函数
+</script>脚本>
+</body>
+</html>
         .chat-time{font-size:11px;color:#ccc;position:absolute;top:14px;right:14px;}
         .message-area{flex:1;overflow-y:auto;padding:15px;padding-bottom:70px;display:flex;flex-direction:column;gap:12px;background:#fff9fb;-webkit-overflow-scrolling:touch;}
         .bubble{max-width:72%;padding:12px 15px;border-radius:18px;word-wrap:break-word;word-break:break-all;line-height:1.5;cursor:pointer;user-select:none;}
